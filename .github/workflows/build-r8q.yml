@@ -30,7 +30,10 @@ jobs:
       - name: Install Build Dependencies
         # Includes standard compilers plus kmod, cpio, rsync, and debhelper 
         # which are strictly required for the 'bindeb-pkg' target to succeed.
+        # The Debian packaging step also checks for native libdw headers and
+        # target-arch OpenSSL headers when cross-building for arm64.
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
@@ -43,11 +46,13 @@ jobs:
             make \
             kmod \
             cpio \
+            libdw-dev \
             libelf-dev \
             rsync \
             debhelper \
             dpkg-dev \
-            device-tree-compiler
+            device-tree-compiler \
+            libssl-dev:arm64
 
       - name: Configure Kernel
         run: |
