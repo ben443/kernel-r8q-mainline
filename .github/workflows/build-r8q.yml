@@ -1,4 +1,4 @@
-name: Build S20 FE Kernel and DTB
+name: Build S20 FE Kernel V2.
 
 on:
   #push:
