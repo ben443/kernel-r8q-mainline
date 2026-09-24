@@ -1,0 +1,98 @@
+name: Build S20 FE Kernel and DTB
+
+on:
+  push:
+    paths:
+      - 'arch/arm64/boot/dts/qcom/sm8250-samsung-r8q.dts'
+      - 'arch/arm64/boot/dts/qcom/Makefile'
+      - '.github/workflows/build-kernel.yml'
+  workflow_dispatch:
+
+jobs:
+  build-kernel-dtb:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        # Standard GitHub runners have limited space. Building a Linux kernel can easily 
+        # trigger an "out of space" failure. We delete massive, unused pre-installed SDKs.
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+
+      - name: Install Build Dependencies
+        # Includes standard compilers plus kmod, cpio, rsync, and debhelper 
+        # which are strictly required for the 'bindeb-pkg' target to succeed.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            binutils-aarch64-linux-gnu \
+            build-essential \
+            bc \
+            bison \
+            flex \
+            libssl-dev \
+            make \
+            kmod \
+            cpio \
+            libelf-dev \
+            rsync \
+            debhelper \
+            dpkg-dev \
+            device-tree-compiler
+
+      - name: Configure Kernel
+        run: |
+          # 1. Generate the base ARM64 default configuration
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+          
+          # 2. Disable Debug Info to prevent a massive 30GB+ .deb file that crashes the runner
+          ./scripts/config --disable DEBUG_INFO
+          ./scripts/config --disable DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT
+          ./scripts/config --enable DEBUG_INFO_NONE
+          
+          # 3. Inject Kali NetHunter mandatory kernel modules
+          ./scripts/config --enable CFG80211_WEXT
+          ./scripts/config --enable MAC80211
+          ./scripts/config --enable USB_GADGET
+          ./scripts/config --enable USB_CONFIGFS
+          ./scripts/config --enable USB_CONFIGFS_F_HID
+          ./scripts/config --enable USB_CONFIGFS_MASS_STORAGE
+          ./scripts/config --enable USB_CONFIGFS_RNDIS
+          ./scripts/config --enable MEDIA_SDR_SUPPORT
+          ./scripts/config --enable SYSVIPC
+          
+          # 4. Cleanly resolve the injected dependencies
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+
+      - name: Compile Debian Packages and DTB
+        run: |
+          # Build the Debian packages. The -j$(nproc) flag utilizes all available CPU cores.
+          # Note: 'bindeb-pkg' drops the finished .deb files in the PARENT directory (../).
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) bindeb-pkg KDEB_PKGVERSION=1.0-r8q
+          
+          # Explicitly target the DTB so it can be cleanly copied without extracting it from the deb.
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- qcom/sm8250-samsung-r8q.dtb
+
+      - name: Gather Artifacts
+        run: |
+          mkdir -p output_artifacts
+          # Pull the compiled Debian packages out of the parent directory
+          mv ../linux-*.deb output_artifacts/
+          # Pull the compiled DTB
+          cp arch/arm64/boot/dts/qcom/sm8250-samsung-r8q.dtb output_artifacts/
+
+      - name: Upload Kernel and DTB Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8q-kernel-packages
+          path: output_artifacts/*
+          if-no-files-foun
+d: error
