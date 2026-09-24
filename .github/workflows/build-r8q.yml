@@ -95,5 +95,4 @@ jobs:
         with:
           name: r8q-kernel-packages
           path: output_artifacts/*
-          if-no-files-foun
-d: error
+          if-no-files-found: error
