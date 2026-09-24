@@ -1,0 +1,53 @@
+name: Build S20 FE DTB
+
+on:
+  # Triggers the workflow automatically if you modify the DTS file
+  push:
+    paths:
+      - 'arch/arm64/boot/dts/qcom/sm8250-samsung-r8q.dts'
+      - 'arch/arm64/boot/dts/qcom/Makefile'
+      - '.github/workflows/build-dtb.yml'
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build-dtb:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            binutils-aarch64-linux-gnu \
+            build-essential \
+            bc \
+            bison \
+            flex \
+            libssl-dev \
+            make \
+            device-tree-compiler
+
+      - name: Configure Kernel Build System
+        run: |
+          # kbuild requires a .config file to exist before it will compile anything.
+          # defconfig generates a safe default configuration for ARM64.
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+
+      - name: Compile Device Tree Blob (DTB)
+        run: |
+          # Invokes the kernel's internal build system to resolve all #include headers 
+          # and output the binary DTB.
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- qcom/sm8250-samsung-r8q.dtb
+
+      - name: Upload DTB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8q-dtb-artifact
+          path: arch/arm64/boot/dts/qcom/sm8250-samsung-r8q.dtb
+          if-no-files-found:
+          error
