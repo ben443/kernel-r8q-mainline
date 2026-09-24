@@ -1,11 +1,11 @@
 name: Build S20 FE Kernel and DTB
 
 on:
-  push:
-    paths:
-      - 'arch/arm64/boot/dts/qcom/sm8250-samsung-r8q.dts'
-      - 'arch/arm64/boot/dts/qcom/Makefile'
-      - '.github/workflows/build-kernel.yml'
+  #push:
+    #paths:
+     # - 'arch/arm64/boot/dts/qcom/sm8250-samsung-r8q.dts'
+     # - 'arch/arm64/boot/dts/qcom/Makefile'
+    #  - '.github/workflows/build-kernel.yml'
  
   workflow_dispatch:
 
