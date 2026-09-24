@@ -33,7 +33,17 @@ jobs:
         # The Debian packaging step also checks for native libdw headers and
         # target-arch OpenSSL headers when cross-building for arm64.
         run: |
+          UBUNTU_CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME}")"
           sudo dpkg --add-architecture arm64
+          sudo sed -i 's/^Architectures: .*/Architectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
+          sudo tee /etc/apt/sources.list.d/arm64-ports.sources >/dev/null <<EOF
+          Types: deb
+          URIs: http://ports.ubuntu.com/ubuntu-ports
+          Suites: ${UBUNTU_CODENAME} ${UBUNTU_CODENAME}-updates ${UBUNTU_CODENAME}-backports ${UBUNTU_CODENAME}-security
+          Components: main restricted universe multiverse
+          Architectures: arm64
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          EOF
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
